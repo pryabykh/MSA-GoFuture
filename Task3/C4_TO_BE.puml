@@ -1,0 +1,137 @@
+@startuml Container_Diagram_ToBe_SEA_MultiRegion
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+Person(passenger, "Пассажир")
+Person(driver, "Водитель")
+
+' ===================== Global Edge =====================
+Container(global_dns, "Global DNS / Traffic Manager", "GeoDNS / Anycast","Геомаршрутизация пользователей и failover")
+Container(global_waf, "Global WAF", "WAF / DDoS Protection","Защита от DDoS атак")
+
+Rel(passenger, global_dns, "Использует")
+Rel(driver, global_dns, "Использует")
+Rel(global_dns, global_waf, "Геомаршрутизация")
+
+' =====================================================
+' =============== REGION: Singapore ===================
+' =====================================================
+System_Boundary(region_sg, "Регион: Сингапур") {
+
+    Container(api_gateway_sg, "API Gateway", "Kong / Envoy", "Маршрутизация, Rate Limit")
+    Container(firewall_sg, "Firewall", "Network Firewall", "Сетевая изоляция")
+
+    ContainerQueue(kafka_sg, "Kafka Cluster", "Kafka", "Event Bus")
+
+    Container(booking_sg, "Booking Service", "Python / Java", "Создание и управление поездкой")
+    Container(driver_sg, "Driver Service", "Python / Go", "Водители и доступность")
+    Container(pricing_sg, "Pricing Service", "Python + ML", "Динамическое ценообразование")
+    Container(payments_sg, "Payments Service", "Java", "Платежи и выплаты")
+
+    ContainerDb(db_booking_sg, "Booking DB", "PostgreSQL", "Primary (SG)")
+    ContainerDb(db_payments_sg, "Payments DB", "PostgreSQL", "Primary (SG)")
+
+    Rel(global_waf, firewall_sg, "HTTP/REST API")
+    Rel(firewall_sg, api_gateway_sg, "")
+
+    Rel(api_gateway_sg, booking_sg, "HTTP/REST API")
+
+    Rel(booking_sg, driver_sg, "Проверяет доступность водителей", "HTTP/REST API")
+    Rel(booking_sg, pricing_sg, "Запрашивает стоимость", "HTTP/REST API")
+    Rel(booking_sg, payments_sg, "Инициирует платеж", "HTTP/REST API")
+
+    Rel(booking_sg, kafka_sg, "Отправляет события")
+    Rel(driver_sg, kafka_sg, "Отправляет события")
+    Rel(pricing_sg, kafka_sg, "Отправляет события")
+    Rel(payments_sg, kafka_sg, "Отправляет события")
+
+    Rel(booking_sg, db_booking_sg, "Чтение/запись данных")
+    Rel(payments_sg, db_payments_sg, "Чтение/запись данных")
+}
+
+' =====================================================
+' =============== REGION: Jakarta =====================
+' =====================================================
+System_Boundary(region_id, "Регион: Джакарта") {
+
+    Container(api_gateway_id, "API Gateway", "Kong / Envoy", "Маршрутизация, Rate Limit")
+    Container(firewall_id, "Firewall", "Network Firewall", "Сетевая изоляция")
+
+    ContainerQueue(kafka_id, "Kafka Cluster", "Kafka", "Event Bus")
+
+    Container(booking_id, "Booking Service", "Python / Java", "Создание и управление поездкой")
+    Container(driver_id, "Driver Service", "Python / Go", "Водители и доступность")
+    Container(pricing_id, "Pricing Service", "Python + ML", "Динамическое ценообразование")
+    Container(payments_id, "Payments Service", "Java", "Платежи и выплаты")
+
+    ContainerDb(db_booking_id, "Booking DB", "PostgreSQL", "Primary (ID)")
+    ContainerDb(db_payments_id, "Payments DB", "PostgreSQL", "Primary (ID)")
+
+    Rel(global_waf, firewall_id, "HTTP/REST API")
+    Rel(firewall_id, api_gateway_id, "")
+
+    Rel(api_gateway_id, booking_id, "HTTP/REST API")
+
+    Rel(booking_id, driver_id, "Проверяет доступность водителей", "HTTP/REST API")
+    Rel(booking_id, pricing_id, "Запрашивает стоимость", "HTTP/REST API")
+    Rel(booking_id, payments_id, "Инициирует платеж", "HTTP/REST API")
+
+    Rel(booking_id, kafka_id, "Отправляет события")
+    Rel(driver_id, kafka_id, "Отправляет события")
+    Rel(pricing_id, kafka_id, "Отправляет события")
+    Rel(payments_id, kafka_id, "Отправляет события")
+
+    Rel(booking_id, db_booking_id, "Чтение/запись данных")
+    Rel(payments_id, db_payments_id, "Чтение/запись данных")
+}
+
+' =====================================================
+' =============== REGION: Hong Kong ===================
+' =====================================================
+System_Boundary(region_hk, "Регион: Гонконг") {
+
+    Container(api_gateway_hk, "API Gateway", "Kong / Envoy", "Маршрутизация, Rate Limit")
+    Container(firewall_hk, "Firewall", "Network Firewall", "Сетевая изоляция")
+
+    ContainerQueue(kafka_hk, "Kafka Cluster", "Kafka", "Event Bus")
+
+    Container(booking_hk, "Booking Service", "Python / Java", "Создание и управление поездкой")
+    Container(driver_hk, "Driver Service", "Python / Go", "Водители и доступность")
+    Container(pricing_hk, "Pricing Service", "Python + ML", "Динамическое ценообразование")
+    Container(payments_hk, "Payments Service", "Java", "Платежи и выплаты")
+
+    ContainerDb(db_booking_hk, "Booking DB", "PostgreSQL", "Replica (HK)")
+    ContainerDb(db_payments_hk, "Payments DB", "PostgreSQL", "Replica (HK)")
+
+    Rel(global_waf, firewall_hk, "HTTP/REST API")
+    Rel(firewall_hk, api_gateway_hk, "")
+
+    Rel(api_gateway_hk, booking_hk, "HTTP/REST API")
+
+    Rel(booking_hk, driver_hk, "Проверяет доступность водителей", "HTTP/REST API")
+    Rel(booking_hk, pricing_hk, "Запрашивает стоимость", "HTTP/REST API")
+    Rel(booking_hk, payments_hk, "Инициирует платеж", "HTTP/REST API")
+
+    Rel(booking_hk, kafka_hk, "Отправляет события")
+    Rel(driver_hk, kafka_hk, "Отправляет события")
+    Rel(pricing_hk, kafka_hk, "Отправляет события")
+    Rel(payments_hk, kafka_hk, "Отправляет события")
+
+    Rel(booking_hk, db_booking_hk, "Чтение/запись данных")
+    Rel(payments_hk, db_payments_hk, "Чтение/запись данных")
+}
+
+' =====================================================
+' ========== Cross-Region Replication =================
+' =====================================================
+
+Rel(db_booking_sg, db_booking_id, "Репликация данных")
+Rel(db_booking_id, db_booking_hk, "Репликация данных")
+
+Rel(db_payments_sg, db_payments_id, "Репликация данных")
+Rel(db_payments_id, db_payments_hk, "Репликация данных")
+
+Rel(kafka_sg, kafka_id, "Репликация данных")
+Rel(kafka_sg, kafka_hk, "Репликация данных")
+
+
+@enduml
