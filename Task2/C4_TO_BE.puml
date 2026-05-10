@@ -1,0 +1,128 @@
+@startuml Container_Diagram_ToBe_Full_EventBusObservability
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+Person(passenger, "Пассажир")
+Person(driver, "Водитель")
+Person(manager, "Корпоративный менеджер")
+Person(accountant, "Бухгалтер")
+Person(sre, "SRE инженер")
+
+System_Boundary(go_future, "GoFuture Platform (To-Be)") {
+
+    ' ===== Client Applications =====
+    Container(passenger_app, "Пассажирское приложение", "iOS / Android / Huawei", "Заказ поездок")
+    Container(driver_app, "Водительское приложение", "iOS / Android / Huawei", "Приём заказов")
+    Container(corp_portal, "Корпоративный веб-портал", "Web Application", "Управление аккаунтами")
+    Container(admin_portal, "Админ-панель", "Web Application", "Финансовый контроль")
+
+    ' ===== Edge & Platform =====
+    Container(api_gateway, "API Gateway", "Kong / Envoy", "Маршрутизация, Rate Limit")
+    Container(auth, "Auth Service", "OAuth2", "Аутентификация и авторизация")
+    ContainerQueue(event_bus, "Event Bus", "Kafka", "Асинхронное взаимодействие сервисов, поток логов и метрик")
+
+    ' ===== Domain Services =====
+    Container(booking, "Booking Service", "Python / Java", "Создание и управление поездкой")
+    Container(driver_svc, "Driver Service", "Python / Go", "Водители и доступность")
+    Container(pricing, "Pricing Service", "Python + ML", "Динамическое ценообразование")
+    Container(geography, "Geography Service", "Go", "Маршруты, ETA, геоданные")
+    Container(payments, "Payments Service", "Java", "Платежи и выплаты")
+    Container(notification, "Notification Service", "Python", "Push-уведомления")
+    Container(fraud, "Fraud Service", "Python", "Антифрод")
+    Container(analytics_ingest, "Analytics Ingest Service", "Flink", "Приём и обработка событий")
+
+    ' ===== BI / Analytics =====
+    ContainerDb(db_analytics, "Analytics DB", "ClickHouse", "Аналитическое хранилище")
+    Container(bi_tool, "BI Tool", "DataLens / Looker", "Бизнес и финансовые отчёты")
+
+    ' ===== Observability =====
+    Container(loki, "Loki", "Log Aggregation", "Сбор и анализ логов")
+    Container(prometheus, "Prometheus", "Monitoring System", "Сбор метрик")
+    Container(grafana, "Grafana", "Dashboard System", "Визуализация метрик")
+    Container(alert_manager, "Alertmanager", "Alert System", "Управление алертами")
+
+    ' ===== Legacy =====
+    Container(monolith, "Legacy Monolith", "Django", "Устаревшая логика (временно)")
+
+    ' ===== Databases =====
+    ContainerDb(db_booking, "Booking DB", "PostgreSQL")
+    ContainerDb(db_driver, "Driver DB", "PostgreSQL")
+    ContainerDb(db_pricing, "Pricing DB", "PostgreSQL")
+    ContainerDb(db_payments, "Payments DB", "PostgreSQL")
+    ContainerDb(db_fraud, "Fraud DB", "PostgreSQL")
+}
+
+' ===== External Systems =====
+System_Ext(yandex_pay, "Яндекс Пэй", "Платёжный шлюз")
+System_Ext(bank_api, "API Банка", "Банковские выплаты")
+System_Ext(yandex_maps, "Яндекс Карты", "Картографический сервис")
+System_Ext(fcm, "FCM", "Push-сервис Google")
+System_Ext(apns, "APNs", "Push-сервис Apple")
+System_Ext(huawei_push, "Huawei Push Kit", "Push-сервис Huawei")
+
+' ===== Users =====
+Rel(passenger, passenger_app, "Использует")
+Rel(driver, driver_app, "Использует")
+Rel(manager, corp_portal, "Использует")
+Rel(manager, bi_tool, "Просматривает отчёты")
+Rel(accountant, admin_portal, "Использует")
+Rel(accountant, bi_tool, "Просматривает фин. отчёты")
+Rel(alert_manager, sre, "Отправляет уведомления", "Email/Slack/Pager")
+Rel(sre, grafana, "Мониторит метрики и дашборды")
+Rel(sre, loki, "Мониторит логи")
+
+' ===== Clients → Gateway =====
+Rel(passenger_app, api_gateway, "HTTP/REST API")
+Rel(driver_app, api_gateway, "HTTP/REST API")
+Rel(corp_portal, api_gateway, "HTTP/REST API")
+Rel(admin_portal, api_gateway, "HTTP/REST API")
+
+' ===== Gateway & Auth =====
+Rel(api_gateway, auth, "HTTP/REST API")
+Rel(api_gateway, booking, "HTTP/REST API")
+Rel(api_gateway, pricing, "HTTP/REST API")
+Rel(api_gateway, monolith, "HTTP/REST API")
+
+' ===== Sync Service Calls =====
+Rel(booking, driver_svc, "Проверяет доступность водителей", "HTTP/REST API")
+Rel(booking, pricing, "Запрашивает стоимость поездки", "HTTP/REST API")
+Rel(booking, geography, "Маршруты и время прибытия", "HTTP/REST API")
+Rel(booking, payments, "Инициализация платежа", "HTTP/REST API")
+
+Rel(geography, yandex_maps, "Навигация")
+Rel(payments, yandex_pay, "Обработка платежей")
+Rel(payments, bank_api, "Выплаты водителям")
+
+' ===== Async Events =====
+Rel(booking, event_bus, "Отправляет события")
+Rel(payments, event_bus, "Отправляет события")
+Rel(pricing, event_bus, "Отправляет события")
+Rel(driver_svc, event_bus, "Отправляет события")
+
+
+Rel(event_bus, notification, "Отправляет события")
+Rel(event_bus, fraud, "Отправляет события")
+Rel(event_bus, analytics_ingest, "Отправляет события")
+Rel(event_bus, loki, "Логи сервисов")
+Rel(event_bus, prometheus, "Метрики сервисов")
+
+' ===== Notifications =====
+Rel(notification, fcm, "Push")
+Rel(notification, apns, "Push")
+Rel(notification, huawei_push, "Push")
+
+' ===== Analytics =====
+Rel(analytics_ingest, db_analytics, "ETL")
+Rel(bi_tool, db_analytics, "SQL Запросы")
+
+' ===== Observability =====
+Rel(prometheus, alert_manager, "Отправляет алерты")
+Rel(prometheus, grafana, "Отправляет метрики для дашбордов")
+
+' ===== Databases =====
+Rel(booking, db_booking, "Чтение/запись данных")
+Rel(driver_svc, db_driver, "Чтение/запись данных")
+Rel(pricing, db_pricing, "Чтение/запись данных")
+Rel(payments, db_payments, "Чтение/запись данных")
+Rel(fraud, db_fraud, "Чтение/запись данных")
+
+@enduml

@@ -1,0 +1,68 @@
+@startuml Container_Diagram_ToBe_Multitenant
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+Person(partner_admin, "Админ партнёра")
+
+System_Boundary(go_future, "GoFuture Platform (Multitenant)") {
+
+    ' ===== IAM & Access =====
+    Container(iam, "IAM / SSO", "OAuth2 / RBAC", "Управление ролями, SSO и доступом к ресурсам")
+
+    ' ===== Onboarding =====
+    Container(onboarding, "Onboarding Service", "Python / Go", "Автоматическое создание нового тенанта и его ресурсов")
+
+    ' ===== Tenant Data & Services =====
+    System_Boundary(tenant_a, "Tenant A") {
+        ContainerDb(db_tenant_a, "Tenant A DB", "PostgreSQL", "Изоляция данных Tenant A")
+        Container(api_gateway_a, "API Gateway", "Kong / Envoy", "Доступ к сервисам Tenant A")
+        Container(booking_a, "Booking Service", "Microservice", "Заказы Tenant A")
+        Container(driver_a, "Driver Service", "Microservice", "Водители Tenant A")
+    }
+
+    System_Boundary(tenant_b, "Tenant B") {
+        ContainerDb(db_tenant_b, "Tenant B DB", "PostgreSQL", "Изоляция данных Tenant B")
+        Container(api_gateway_b, "API Gateway", "Kong / Envoy", "Доступ к сервисам Tenant B")
+        Container(booking_b, "Booking Service", "Microservice", "Заказы Tenant B")
+        Container(driver_b, "Driver Service", "Microservice", "Водители Tenant B")
+    }
+
+    ' ===== Monitoring =====
+    Container(prometheus, "Prometheus", "Monitoring System", "Сбор метрик мультитенантного окружения")
+    Container(grafana, "Grafana", "Dashboard System", "Аналитика по тенантам")
+    Container(loki, "Loki", "Log Aggregation", "Логи по каждому тенанту")
+}
+
+' ===== External Systems =====
+System_Ext(sso_provider, "SSO Provider", "OAuth2", "Единая точка входа для авторизации")
+
+' ===== Flows =====
+Rel(partner_admin, sso_provider, "Вход через SSO")
+Rel(sso_provider, iam, "Проверка и выдача доступов")
+Rel(iam, api_gateway_a, "Выдаёт доступы")
+Rel(iam, api_gateway_b, "Выдаёт доступы")
+
+Rel(onboarding, api_gateway_a, "Настраивает маршрутизацию и сервисы Tenant A")
+Rel(onboarding, api_gateway_b, "Настраивает маршрутизацию и сервисы Tenant B")
+
+Rel(api_gateway_a, booking_a, "HTTP/REST API")
+Rel(api_gateway_a, driver_a, "HTTP/REST API")
+Rel(api_gateway_b, booking_b, "HTTP/REST API")
+Rel(api_gateway_b, driver_b, "HTTP/REST API")
+
+Rel(booking_a, db_tenant_a, "Чтение/запись")
+Rel(driver_a, db_tenant_a, "Чтение/запись")
+Rel(booking_b, db_tenant_b, "Чтение/запись")
+Rel(driver_b, db_tenant_b, "Чтение/запись")
+
+Rel(booking_a, prometheus, "Метрики")
+Rel(booking_b, prometheus, "Метрики")
+Rel(driver_a, prometheus, "Метрики")
+Rel(driver_b, prometheus, "Метрики")
+
+Rel(booking_a, loki, "Логи")
+Rel(booking_b, loki, "Логи")
+Rel(driver_a, loki, "Логи")
+Rel(driver_b, loki, "Логи")
+
+Rel(prometheus, grafana, "Отправка метрик для дашбордов")
+@enduml
